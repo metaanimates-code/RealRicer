@@ -1,0 +1,8 @@
+show=drun
+allow_images=true
+insensitive=true
+hide_search=true
+no_actions=true
+height=45%
+columns=4
+image_size=64

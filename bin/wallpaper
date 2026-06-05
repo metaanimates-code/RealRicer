@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+dir="$HOME/Wallpapers"
+state="$HOME/.cache/wallpaper-state"
+
+# If a theme is active, use its wallpaper source directory
+current_theme_wp_src="$HOME/.cache/current-theme-wp-src"
+if [[ -f "$current_theme_wp_src" ]]; then
+  themedir=$(cat "$current_theme_wp_src")
+  [[ -d "$themedir" ]] && dir="$themedir"
+fi
+
+apply() {
+  local chosen="$1"
+  awww img "$chosen"
+  echo "$chosen" > "$state"
+
+  if [[ ! -f "$current_theme_wp_src" ]]; then
+    # Without a theme: use matugen for dynamic colors
+    matugen image "$chosen" --prefer darkness 2>/dev/null
+
+    # Update hyprlock with matugen colors
+    hyprlock_conf="$HOME/.config/hypr/hyprlock.conf"
+    if [[ -f "$hyprlock_conf" ]]; then
+      colors_json=$(matugen image "$chosen" --prefer darkness -j hex -q 2>/dev/null)
+      primary=$(echo "$colors_json" | python3 -c "import sys,json; c=json.load(sys.stdin)['colors']; print(c['primary']['default']['color'])" 2>/dev/null)
+      on_surface=$(echo "$colors_json" | python3 -c "import sys,json; c=json.load(sys.stdin)['colors']; print(c['on_surface']['default']['color'])" 2>/dev/null)
+      secondary=$(echo "$colors_json" | python3 -c "import sys,json; c=json.load(sys.stdin)['colors']; print(c['secondary']['default']['color'])" 2>/dev/null)
+      error=$(echo "$colors_json" | python3 -c "import sys,json; c=json.load(sys.stdin)['colors']; print(c['error']['default']['color'])" 2>/dev/null)
+      p_container=$(echo "$colors_json" | python3 -c "import sys,json; c=json.load(sys.stdin)['colors']; print(c['primary_container']['default']['color'])" 2>/dev/null)
+
+      hex_to_rgb() { local h=$1; printf "%d, %d, %d" 0x${h:1:2} 0x${h:3:2} 0x${h:5:2}; }
+
+      primary_rgb=$(hex_to_rgb "$primary")
+      text_rgb=$(hex_to_rgb "$on_surface")
+      time_rgb=$(hex_to_rgb "$secondary")
+      fail_rgb=$(hex_to_rgb "$error")
+      capslock_rgb=$(hex_to_rgb "$p_container")
+
+      sed -i "0,/^[[:space:]]*path = /s|^[[:space:]]*path = .*|    path = $chosen|" "$hyprlock_conf"
+      sed -i \
+        -e 's|^\$accent = .*|\$accent = rgb('"$primary_rgb"')|' \
+        -e 's|^\$text = .*|\$text = rgb('"$text_rgb"')|' \
+        -e 's|color = rgb(.*|color = rgb('"$time_rgb"')|' \
+        -e 's|fail_color = rgb(.*|fail_color = rgb('"$fail_rgb"')|' \
+        -e 's|capslock_color = rgb(.*|capslock_color = rgb('"$capslock_rgb"')|' \
+        "$hyprlock_conf"
+    fi
+
+    regenerate_style
+    killall waybar 2>/dev/null; waybar &
+  fi
+  /usr/bin/pkill -x -USR1 kitty 2>/dev/null
+  notify-send "Wallpaper" "$(basename "$chosen")"
+}
+
+regenerate_style() {
+  local colors="$HOME/.config/waybar/colors.css"
+  local template="$HOME/dotfiles/waybar/.config/waybar/style.css"
+  local output="$HOME/.config/waybar/style.css"
+
+  # Read @define-color values, strip trailing semicolons
+  declare -A vars
+  while IFS=' ' read -r _ name val _; do
+    val="${val%;}"
+    [[ -n "$name" && -n "$val" ]] && vars["$name"]="$val"
+  done < <(grep '@define-color' "$colors")
+
+  # Read template line by line, replace @varname references with hex values
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == @import* ]] && continue
+    for name in "${!vars[@]}"; do
+      line="${line//\@$name/${vars[$name]}}"
+    done
+    echo "$line"
+  done < "$template" > "$output"
+}
+
+shopt -s nullglob
+files=("$dir"/*.{jpg,jpeg,png,gif,webp,bmp,JPG,JPEG,PNG,GIF,WEBP,BMP})
+shopt -u nullglob
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  notify-send "Wallpaper" "No images found in $dir"
+  exit 1
+fi
+
+IFS=$'\n' sorted=($(sort <<<"${files[*]}")); unset IFS
+current=$(cat "$state" 2>/dev/null)
+
+case "${1:-select}" in
+  select)
+    "$HOME/.local/bin/wallpaper-picker"
+    [[ -f "$HOME/.cache/wallpaper-selected" ]] && apply "$(cat "$HOME/.cache/wallpaper-selected")"
+    ;;
+  random)
+    chosen="${sorted[RANDOM % ${#sorted[@]}]}"
+    apply "$chosen"
+    ;;
+  next)
+    idx=-1
+    for i in "${!sorted[@]}"; do
+      [[ "${sorted[$i]}" == "$current" ]] && idx=$i && break
+    done
+    idx=$(( (idx + 1) % ${#sorted[@]} ))
+    apply "${sorted[$idx]}"
+    ;;
+  prev)
+    idx=-1
+    for i in "${!sorted[@]}"; do
+      [[ "${sorted[$i]}" == "$current" ]] && idx=$i && break
+    done
+    idx=$(( (idx - 1 + ${#sorted[@]}) % ${#sorted[@]} ))
+    apply "${sorted[$idx]}"
+    ;;
+esac

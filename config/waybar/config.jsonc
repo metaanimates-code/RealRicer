@@ -1,0 +1,50 @@
+{
+  "position": "top",
+  "modules-left": ["hyprland/window"],
+  "modules-center": ["hyprland/workspaces"],
+  "modules-right": ["network", "pulseaudio", "battery", "backlight", "clock", "custom/power"],
+  "backlight": {
+    "format": "   {percent}%",
+    "on-click": "brightnessctl set 5%+",
+    "on-click-right": "brightnessctl set 5%-"
+  },
+  "clock": {
+    "format": "   {:%a %d %H:%M}",
+    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+  },
+  "battery": {
+    "states": {
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "{icon}   {capacity}%",
+    "format-warning": "{icon}   {capacity}%",
+    "format-critical": "{icon}   {capacity}%",
+    "format-charging": "   {capacity}%",
+    "format-plugged": "   {capacity}%",
+    "format-alt": "{icon}   {time}",
+    "format-full": "   {capacity}%",
+    "format-icons": ["", "", "", "", ""],
+    "tooltip-format": "{time}"
+  },
+  "network": {
+    "format-wifi": "   {essid}",
+    "format-ethernet": "󰤭   Disconnected",
+    "format-linked": "{ifname} (No IP) ",
+    "format-disconnected": " Disconnected",
+    "tooltip-format-wifi": "Signal Strength: {signalStrength}%"
+  },
+  "pulseaudio": {
+      "format": "{icon}   {volume}%",
+      "format-muted": "",
+      "format-icons": {
+          "default": ["", "", ""]
+      },
+      "on-click": "pavucontrol"
+  },
+  "custom/power": {
+      "format": "⏻",
+      "on-click": "~/.config/waybar/scripts/power.sh",
+      "tooltip": false
+  }
+}

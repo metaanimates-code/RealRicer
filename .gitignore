@@ -1,0 +1,4 @@
+# Ignore wallpapers - too large for git
+config/themes/*/wallpapers/
+
+# Ignore VMs and other unrelated stuff

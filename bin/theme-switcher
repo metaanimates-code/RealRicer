@@ -1,0 +1,367 @@
+#!/usr/bin/env bash
+
+THEMES_DIR="$HOME/.config/themes"
+
+# Theme display names -> directory names
+declare -A MENU
+MENU["Catppuccin Mocha"]="catppuccin-mocha"
+MENU["Monochrome"]="monochrome"
+
+apply_theme() {
+  local theme="$1"
+  local wallpaper="$2"
+  local dir="$THEMES_DIR/$theme"
+
+  local waybar_css="$dir/waybar.css"
+  local kitty_conf="$dir/kitty.conf"
+
+  [[ ! -f "$wallpaper" ]] && { notify-send "Theme" "No wallpaper selected"; return 1; }
+  [[ ! -f "$waybar_css" ]] && { notify-send "Theme" "No waybar.css for $theme"; return 1; }
+  [[ ! -f "$kitty_conf" ]] && { notify-send "Theme" "No kitty.conf for $theme"; return 1; }
+
+  # Set wallpaper
+  awww img "$wallpaper"
+  echo "$wallpaper" > "$HOME/.cache/wallpaper-state"
+  echo "$theme" > "$HOME/.cache/current-theme"
+  echo "${WP_SOURCE[$theme]}" > "$HOME/.cache/current-theme-wp-src"
+
+  # Waybar colors
+  cp "$waybar_css" "$HOME/.config/waybar/colors.css"
+  inline_waybar_style
+
+  # Kitty
+  cp "$kitty_conf" "$HOME/.config/kitty/current-theme.conf"
+
+  # Wofi
+  [[ -f "$dir/wofi.css" ]] && cp "$dir/wofi.css" "$HOME/.config/wofi/colors.css"
+
+  # Hyprlock
+  # Update wallpaper path in hyprlock
+  sed -i "0,/^[[:space:]]*path = /s|^[[:space:]]*path = .*|    path = $wallpaper|" "$HOME/.config/hypr/hyprlock.conf"
+
+  local hv="$dir/hyprlock.vars"
+  if [[ -f "$hv" ]]; then
+    source "$hv"
+    local hc="$HOME/.config/hypr/hyprlock.conf"
+    sed -i \
+      -e "s|^\$accent = .*|\$accent = rgb($ACCENT_RGB)|" \
+      -e "s|^\$text = .*|\$text = rgb($TEXT_RGB)|" \
+      -e "s|color = rgb(.*|color = rgb($TIME_RGB)|" \
+      -e "s|fail_color = rgb(.*|fail_color = rgb($FAIL_RGB)|" \
+      -e "s|capslock_color = rgb(.*|capslock_color = rgb($CAPSLOCK_RGB)|" \
+      "$hc"
+
+    # Update window border colors in hyprland.conf
+    sed -i \
+      -e "s|^\$themeBorder = .*|\$themeBorder = $BORDER_RGBA|" \
+      -e "s|^\$themeBorderInactive = .*|\$themeBorderInactive = $BORDER_INACTIVE_RGBA|" \
+      "$HOME/.config/hypr/hyprland.conf"
+    hyprctl reload 2>/dev/null
+  fi
+
+  # Restart waybar
+  killall waybar 2>/dev/null; waybar &
+
+  # Reload kitty
+  /usr/bin/pkill -x -USR1 kitty 2>/dev/null
+
+  notify-send "Theme" "Switched to $theme"
+}
+
+inline_waybar_style() {
+  local colors="$HOME/.config/waybar/colors.css"
+  local template="$HOME/dotfiles/waybar/.config/waybar/style.css"
+  local output="$HOME/.config/waybar/style.css"
+
+  declare -A vars
+  while IFS=' ' read -r _ name val _; do
+    val="${val%;}"
+    [[ -n "$name" && -n "$val" ]] && vars["$name"]="$val"
+  done < <(grep '@define-color' "$colors")
+
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == @import* ]] && continue
+    for name in "${!vars[@]}"; do
+      line="${line//\@$name/${vars[$name]}}"
+    done
+    echo "$line"
+  done < "$template" > "$output"
+}
+
+# --- Generate theme data if missing ---
+mkdir -p "$THEMES_DIR"
+
+if [[ ! -d "$THEMES_DIR/catppuccin-mocha" ]]; then
+  mkdir -p "$THEMES_DIR/catppuccin-mocha"
+  convert -size 1920x1080 gradient:'#1e1e2e'-'#45475a' png:"$THEMES_DIR/catppuccin-mocha/wallpaper" 2>/dev/null
+
+  cat > "$THEMES_DIR/catppuccin-mocha/waybar.css" << 'EOF'
+@define-color rosewater #f5e0dc;
+@define-color flamingo #f2cdcd;
+@define-color pink #f5c2e7;
+@define-color mauve #cba6f7;
+@define-color red #f38ba8;
+@define-color maroon #eba0ac;
+@define-color peach #fab387;
+@define-color yellow #f9e2af;
+@define-color green #a6e3a1;
+@define-color teal #94e2d5;
+@define-color sky #89dceb;
+@define-color sapphire #74c7ec;
+@define-color blue #89b4fa;
+@define-color lavender #b4befe;
+@define-color lavendermauve #cba6f7;
+@define-color lightmauve #f5c2e7;
+@define-color deepmauve #a6e3a1;
+@define-color softlavender #585b70;
+@define-color text #cdd6f4;
+@define-color subtext1 #bac2de;
+@define-color subtext0 #a6adc8;
+@define-color overlay2 #9399b2;
+@define-color overlay1 #7f849c;
+@define-color overlay0 #6c7086;
+@define-color surface2 #585b70;
+@define-color surface1 #45475a;
+@define-color surface0 #313244;
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+@define-color crust #11111b;
+EOF
+
+  cat > "$THEMES_DIR/catppuccin-mocha/kitty.conf" << 'EOF'
+foreground              #cdd6f4
+background              #1e1e2e
+selection_foreground    #1e1e2e
+selection_background    #cba6f7
+cursor                  #f5e0dc
+cursor_text_color       #1e1e2e
+url_color               #89b4fa
+active_border_color     #cba6f7
+inactive_border_color   #585b70
+bell_border_color       #f9e2af
+active_tab_foreground   #1e1e2e
+active_tab_background   #cba6f7
+inactive_tab_foreground #cdd6f4
+inactive_tab_background #313244
+tab_bar_background      #1e1e2e
+mark1_foreground #1e1e2e
+mark1_background #f5c2e7
+mark2_foreground #1e1e2e
+mark2_background #cba6f7
+mark3_foreground #1e1e2e
+mark3_background #a6e3a1
+color0 #45475a
+color8 #585b70
+color1  #f38ba8
+color9  #f38ba8
+color2  #a6e3a1
+color10 #a6e3a1
+color3  #f9e2af
+color11 #f9e2af
+color4  #89b4fa
+color12 #89b4fa
+color5  #f5c2e7
+color13 #f5c2e7
+color6  #94e2d5
+color14 #94e2d5
+color7  #cdd6f4
+color15 #bac2de
+EOF
+
+  cat > "$THEMES_DIR/catppuccin-mocha/hyprlock.vars" << 'EOF'
+ACCENT_RGB="203, 166, 247"
+TEXT_RGB="205, 214, 244"
+TIME_RGB="166, 227, 161"
+FAIL_RGB="243, 139, 168"
+CAPSLOCK_RGB="137, 220, 235"
+BORDER_RGBA="rgba(cba6f7ff) rgba(b4befeff) 45deg"
+BORDER_INACTIVE_RGBA="rgba(8c78b4aa)"
+EOF
+
+  cat > "$THEMES_DIR/catppuccin-mocha/wofi.css" << 'EOF'
+@define-color rosewater #f5e0dc;
+@define-color flamingo #f2cdcd;
+@define-color pink #f5c2e7;
+@define-color mauve #cba6f7;
+@define-color red #f38ba8;
+@define-color maroon #eba0ac;
+@define-color peach #fab387;
+@define-color yellow #f9e2af;
+@define-color green #a6e3a1;
+@define-color teal #94e2d5;
+@define-color sky #89dceb;
+@define-color sapphire #74c7ec;
+@define-color blue #89b4fa;
+@define-color lavender #b4befe;
+@define-color window-bg rgba(30, 30, 46, 0.7);
+@define-color text #cdd6f4;
+@define-color subtext1 #bac2de;
+@define-color subtext0 #a6adc8;
+@define-color overlay2 #9399b2;
+@define-color overlay1 #7f849c;
+@define-color overlay0 #6c7086;
+@define-color surface2 #585b70;
+@define-color surface1 #45475a;
+@define-color surface0 #313244;
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+@define-color crust #11111b;
+EOF
+fi
+
+if [[ ! -d "$THEMES_DIR/monochrome" ]]; then
+  mkdir -p "$THEMES_DIR/monochrome"
+  convert -size 1920x1080 gradient:'#1a1a1a'-'#3a3a3a' png:"$THEMES_DIR/monochrome/wallpaper" 2>/dev/null
+
+  cat > "$THEMES_DIR/monochrome/waybar.css" << 'EOF'
+@define-color rosewater #f5f5f5;
+@define-color flamingo #e8e8e8;
+@define-color pink #d4d4d4;
+@define-color mauve #c0c0c0;
+@define-color red #acacac;
+@define-color maroon #9e9e9e;
+@define-color peach #909090;
+@define-color yellow #e0e0e0;
+@define-color green #cccccc;
+@define-color teal #b8b8b8;
+@define-color sky #eaeaea;
+@define-color sapphire #d6d6d6;
+@define-color blue #c2c2c2;
+@define-color lavender #aeaeae;
+@define-color lavendermauve #c0c0c0;
+@define-color lightmauve #d4d4d4;
+@define-color deepmauve #cccccc;
+@define-color softlavender #3d3d3d;
+@define-color text #f0f0f0;
+@define-color subtext1 #d0d0d0;
+@define-color subtext0 #ababab;
+@define-color overlay2 #8a8a8a;
+@define-color overlay1 #6c6c6c;
+@define-color overlay0 #525252;
+@define-color surface2 #3d3d3d;
+@define-color surface1 #303030;
+@define-color surface0 #232323;
+@define-color base #181818;
+@define-color mantle #121212;
+@define-color crust #0a0a0a;
+EOF
+
+  cat > "$THEMES_DIR/monochrome/kitty.conf" << 'EOF'
+foreground              #f0f0f0
+background              #181818
+selection_foreground    #181818
+selection_background    #c0c0c0
+cursor                  #f5f5f5
+cursor_text_color       #181818
+url_color               #c2c2c2
+active_border_color     #c0c0c0
+inactive_border_color   #3d3d3d
+bell_border_color       #e0e0e0
+active_tab_foreground   #181818
+active_tab_background   #c0c0c0
+inactive_tab_foreground #f0f0f0
+inactive_tab_background #232323
+tab_bar_background      #181818
+mark1_foreground #181818
+mark1_background #d4d4d4
+mark2_foreground #181818
+mark2_background #c0c0c0
+mark3_foreground #181818
+mark3_background #cccccc
+color0 #303030
+color8 #3d3d3d
+color1  #acacac
+color9  #acacac
+color2  #cccccc
+color10 #cccccc
+color3  #e0e0e0
+color11 #e0e0e0
+color4  #c2c2c2
+color12 #c2c2c2
+color5  #d4d4d4
+color13 #d4d4d4
+color6  #b8b8b8
+color14 #b8b8b8
+color7  #f0f0f0
+color15 #d0d0d0
+EOF
+
+  cat > "$THEMES_DIR/monochrome/hyprlock.vars" << 'EOF'
+ACCENT_RGB="192, 192, 192"
+TEXT_RGB="240, 240, 240"
+TIME_RGB="204, 204, 204"
+FAIL_RGB="172, 172, 172"
+CAPSLOCK_RGB="234, 234, 234"
+BORDER_RGBA="rgba(c0c0c0ff) rgba(aeaeaeff) 45deg"
+BORDER_INACTIVE_RGBA="rgba(707070aa)"
+EOF
+
+  cat > "$THEMES_DIR/monochrome/wofi.css" << 'EOF'
+@define-color rosewater #f5f5f5;
+@define-color flamingo #e8e8e8;
+@define-color pink #d4d4d4;
+@define-color mauve #c0c0c0;
+@define-color red #acacac;
+@define-color maroon #9e9e9e;
+@define-color peach #909090;
+@define-color yellow #e0e0e0;
+@define-color green #cccccc;
+@define-color teal #b8b8b8;
+@define-color sky #eaeaea;
+@define-color sapphire #d6d6d6;
+@define-color blue #c2c2c2;
+@define-color lavender #aeaeae;
+@define-color window-bg rgba(30, 30, 30, 0.7);
+@define-color text #f0f0f0;
+@define-color subtext1 #d0d0d0;
+@define-color subtext0 #ababab;
+@define-color overlay2 #8a8a8a;
+@define-color overlay1 #6c6c6c;
+@define-color overlay0 #525252;
+@define-color surface2 #3d3d3d;
+@define-color surface1 #303030;
+@define-color surface0 #232323;
+@define-color base #181818;
+@define-color mantle #121212;
+@define-color crust #0a0a0a;
+EOF
+fi
+
+# --- Wallpaper source directories per theme ---
+declare -A WP_SOURCE
+WP_SOURCE["catppuccin-mocha"]="$THEMES_DIR/catppuccin-mocha/wallpapers"
+WP_SOURCE["monochrome"]="$HOME/Monochrome"
+
+pick_wallpaper() {
+  local src="$1"
+  local files=()
+  while IFS= read -r -d '' f; do
+    files+=("$f")
+  done < <(find "$src" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) -print0 2>/dev/null)
+  [[ ${#files[@]} -eq 0 ]] && return 1
+  echo "${files[RANDOM % ${#files[@]}]}"
+}
+
+# --- Entry point ---
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  entries=()
+  for key in "${!MENU[@]}"; do
+    entries+=("$key")
+  done
+
+  IFS=$'\n' sorted=($(sort <<<"${entries[*]}")); unset IFS
+
+  theme_chosen=$(printf "%s\n" "${sorted[@]}" | wofi --dmenu --prompt "Theme" --width 300 --height 200 2>/dev/null)
+  [[ -z "$theme_chosen" ]] && exit 0
+
+  theme_key="${MENU[$theme_chosen]}"
+  wp_src="${WP_SOURCE[$theme_key]}"
+
+  [[ ! -d "$wp_src" ]] && { notify-send "Theme" "No wallpaper source for $theme_key"; exit 1; }
+
+  wallpaper=$(pick_wallpaper "$wp_src")
+  [[ -z "$wallpaper" ]] && { notify-send "Theme" "No wallpapers found in $wp_src"; exit 1; }
+
+  apply_theme "$theme_key" "$wallpaper"
+fi

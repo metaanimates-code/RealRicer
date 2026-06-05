@@ -1,0 +1,146 @@
+
+* {
+    font-family: "MesloLGS Nerd Font Mono Bold";
+    font-size: 16px;
+    font-weight: bold;
+}
+
+window#waybar {
+    background: transparent;
+    background-color: transparent;
+    transition-property: background-color;
+    transition-duration: 0.1s;
+}
+
+#workspaces,
+#window,
+#pulseaudio,
+#clock,
+#battery,
+#cpu,
+#memory,
+#disk,
+#temperature,
+#backlight,
+#wireplumber,
+#tray,
+#network,
+#mode,
+#scratchpad,
+#custom-vpn,
+#idle_inhibitor,
+#custom-runcat,
+#custom-power {
+    background-color: alpha(#232323, 0.5);
+    border-radius: 16px;
+    padding: 4px 22px;
+    margin: 6px 8px;
+    border: 1px solid alpha(#303030, 0.4);
+}
+
+button {
+    border: none;
+    border-radius: 0;
+}
+
+button:hover {
+    background: inherit;
+    color: #c0c0c0;
+}
+
+#workspaces button {
+    padding: 2px 8px;
+    border-radius: 11px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#workspaces button.focused {
+    background-color: #c0c0c0;
+    color: #181818;
+}
+
+#workspaces button.active {
+    background-color: #aeaeae;
+    color: #181818;
+}
+
+#workspaces button.urgent {
+    background-color: #acacac;
+    color: #181818;
+}
+
+#clock {
+    color: #c0c0c0;
+}
+
+#clock.date {
+    color: #eaeaea;
+}
+
+#pulseaudio {
+    color: #909090;
+}
+
+#network {
+    color: #cccccc;
+}
+
+#idle_inhibitor {
+    color: #b8b8b8;
+}
+
+#idle_inhibitor.activated {
+    color: #acacac;
+}
+
+#battery {
+    color: #e0e0e0;
+}
+
+#backlight {
+    color: #d6d6d6;
+}
+
+.modules-left > widget:first-child > #workspaces {
+    margin-left: 0;
+}
+
+.modules-right > widget:last-child > #workspaces {
+    margin-right: 0;
+}
+
+#custom-vpn {
+    color: #aeaeae;
+}
+
+#custom-spotify {
+    color: #cccccc;
+}
+
+#custom-power {
+    color: #acacac;
+    font-size: 14px;
+    padding: 4px 10px;
+}
+
+#custom-power:hover {
+    color: #c0c0c0;
+}
+
+#custom-runcat {
+    font-family: 'runcat';
+    font-size: 18px;
+    min-width: 30px;
+}
+
+#custom-runcat.low {
+    color: green;
+}
+
+#custom-runcat.medium {
+    color: blue;
+}
+
+#custom-runcat.high {
+    color: red;
+}

@@ -1,0 +1,22 @@
+@import "/home/shrek/.config/wofi/colors.css";
+
+* {
+  font-family: 'CaskaydiaCove Nerd Font', monospace;
+  font-size: 24px;
+}
+
+#entry {
+  padding: 10px;
+}
+
+#scroll {
+  padding: 15px;
+}
+
+#inner-box {
+  padding: 15px;
+}
+
+#outer-box {
+  padding: 15px;
+}

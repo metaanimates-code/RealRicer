@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+import os
+from pathlib import Path
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gtk, GdkPixbuf, Gdk, GLib
+
+WALL_DIR = os.path.expanduser("~/Wallpapers")
+
+# If a theme is active, show that theme's wallpaper source instead
+CURRENT_THEME_WP_SRC = os.path.expanduser("~/.cache/current-theme-wp-src")
+if os.path.exists(CURRENT_THEME_WP_SRC):
+    with open(CURRENT_THEME_WP_SRC) as f:
+        wp_src = f.read().strip()
+    if os.path.isdir(wp_src):
+        WALL_DIR = wp_src
+
+CACHE_DIR = os.path.expanduser("~/.cache/wallpaper-thumbs")
+OUTPUT = os.path.expanduser("~/.cache/wallpaper-selected")
+
+EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
+              ".JPG", ".JPEG", ".PNG", ".GIF", ".WEBP", ".BMP"}
+THUMB_SIZE = 280
+
+class WallpaperPicker(Gtk.Window):
+    def __init__(self):
+        Gtk.Window.__init__(self, title="wallpaper-picker")
+        self.set_default_size(960, 640)
+        self.set_resizable(True)
+        self.set_position(Gtk.WindowPosition.CENTER)
+
+        screen = Gdk.Screen.get_default()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
+
+        self.set_app_paintable(True)
+        self.connect("draw", self.draw_bg)
+        self.connect("key-press-event", self.on_key)
+
+        css = b"""
+        window { border-radius: 16px; }
+        label { color: #e2e2e9; font-family: "CaskaydiaCove Nerd Font", monospace; font-size: 13px; }
+        scrollbar { border-radius: 8px; }
+        scrollbar slider { border-radius: 8px; min-width: 6px; }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        self.files = self.get_files()
+        if not self.files:
+            Gtk.main_quit()
+            return
+
+        os.makedirs(CACHE_DIR, exist_ok=True)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_border_width(20)
+
+        self.flow = Gtk.FlowBox()
+        self.flow.set_max_children_per_line(4)
+        self.flow.set_min_children_per_line(1)
+        self.flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.flow.set_homogeneous(True)
+        self.flow.set_column_spacing(12)
+        self.flow.set_row_spacing(12)
+        self.flow.set_margin_start(10)
+        self.flow.set_margin_end(10)
+        self.flow.set_margin_top(10)
+        self.flow.set_margin_bottom(10)
+
+        for f in self.files:
+            self.flow.add(self.create_thumb(f))
+
+        scrolled.add(self.flow)
+        self.add(scrolled)
+        self.show_all()
+
+        GLib.idle_add(self.load_thumbs)
+
+    def draw_bg(self, widget, cr):
+        cr.set_source_rgba(0.07, 0.07, 0.11, 0.95)
+        cr.paint()
+        return False
+
+    def get_files(self):
+        exts = tuple(EXTENSIONS)
+        files = sorted([f for f in os.listdir(WALL_DIR) if f.lower().endswith(exts)])
+        return [os.path.join(WALL_DIR, f) for f in files]
+
+    def get_thumb_path(self, img_path):
+        name = Path(img_path).stem + ".png"
+        return os.path.join(CACHE_DIR, name)
+
+    def create_thumb(self, img_path):
+        box = Gtk.EventBox()
+        box.set_visible_window(False)
+        box.connect("button-press-event", lambda w, e, f=img_path: self.select(f))
+        box.img_path = img_path
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vbox.set_valign(Gtk.Align.CENTER)
+
+        placeholder = Gtk.Box()
+        placeholder.set_size_request(THUMB_SIZE, int(THUMB_SIZE * 0.6))
+        placeholder.set_halign(Gtk.Align.CENTER)
+        placeholder.set_valign(Gtk.Align.CENTER)
+        box.placeholder = placeholder
+
+        label = Gtk.Label(label=Path(img_path).name)
+        label.set_max_width_chars(24)
+        label.set_ellipsize(True)
+
+        vbox.pack_start(placeholder, True, True, 0)
+        vbox.pack_end(label, False, False, 0)
+        box.add(vbox)
+        return box
+
+    def load_thumbs(self):
+        for child in self.flow.get_children():
+            box = child.get_child()
+            if hasattr(box, "img_path"):
+                self.load_thumb(box)
+        return False
+
+    def load_thumb(self, box):
+        img_path = box.img_path
+        thumb_path = self.get_thumb_path(img_path)
+
+        if os.path.exists(thumb_path):
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                thumb_path, THUMB_SIZE, -1, True)
+        else:
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    img_path, THUMB_SIZE, -1, True)
+                pixbuf.savev(thumb_path, "png", [], [])
+            except Exception:
+                return
+
+        if not pixbuf:
+            return
+
+        w, h = pixbuf.get_width(), pixbuf.get_height()
+        aspect = h / w
+        display_h = max(int(THUMB_SIZE * aspect * 0.6), 60)
+
+        img = Gtk.Image.new_from_pixbuf(pixbuf)
+        img.set_size_request(THUMB_SIZE, display_h)
+        img.set_halign(Gtk.Align.CENTER)
+        img.set_valign(Gtk.Align.CENTER)
+
+        box.placeholder.get_parent().remove(box.placeholder)
+        vbox = box.get_child()
+        vbox.pack_start(img, True, True, 0)
+        vbox.reorder_child(img, 0)
+        vbox.show_all()
+
+    def select(self, img_path):
+        with open(OUTPUT, "w") as f:
+            f.write(img_path + "\n")
+        Gtk.main_quit()
+
+    def on_key(self, widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            if os.path.exists(OUTPUT):
+                os.remove(OUTPUT)
+            Gtk.main_quit()
+        return False
+
+if __name__ == "__main__":
+    if os.path.exists(OUTPUT):
+        os.remove(OUTPUT)
+    WallpaperPicker()
+    Gtk.main()
