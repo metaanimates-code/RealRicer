@@ -49,3 +49,21 @@ cp "$BACKUP_DIR/bin/"* "$HOME/.local/bin/"
 chmod +x "$HOME/.local/bin/"*
 
 echo "Done! Run 'hyprctl reload' to apply changes."
+
+# Additional scripts
+for s in cava-daemon myfetch spotify-bar toggle-touchpad-typing.sh wofi-askpass zen; do
+  [ -f "$BACKUP_DIR/bin/$s" ] && cp "$BACKUP_DIR/bin/$s" "$HOME/.local/bin/"
+done
+
+# Hyprpaper and mocha configs
+cp "$BACKUP_DIR/config/hypr/hyprpaper.conf" "$CONFIG_DIR/hypr/"
+cp "$BACKUP_DIR/config/hypr/mocha.conf" "$CONFIG_DIR/hypr/"
+
+# Starship
+[ -f "$BACKUP_DIR/config/starship.toml" ] && cp "$BACKUP_DIR/config/starship.toml" "$CONFIG_DIR/"
+
+# Backgrounds
+[ -d "$BACKUP_DIR/config/backgrounds" ] && cp -r "$BACKUP_DIR/config/backgrounds" "$CONFIG_DIR/"
+
+chmod +x "$HOME/.local/bin/"*
+echo "Full restore complete!"

@@ -1,0 +1,2 @@
+#!/bin/bash
+fastfetch --logo /home/shrek/.config/fastfetch/custom_logo.txt "$@"

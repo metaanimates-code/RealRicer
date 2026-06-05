@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+viz_file="$HOME/.cache/cava-viz"
+
+status=$(playerctl status 2>/dev/null) || exit 0
+
+bars=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
+viz=""
+raw=$(head -1 "$viz_file" 2>/dev/null) || raw=""
+if [[ -n "$raw" ]]; then
+  IFS='; ' read -ra vals <<< "$raw"
+  for v in "${vals[@]}"; do
+    v=${v%.*}
+    [[ $v -lt 0 ]] && v=0
+    [[ $v -gt 100 ]] && v=100
+    idx=$(( (v * 7 / 100) ))
+    [[ $idx -gt 7 ]] && idx=7
+    viz+="${bars[$idx]}"
+  done
+else
+  viz="▂   ▂   ▂"
+fi
+
+if [[ "$status" == "Paused" ]]; then
+  echo "󰏤  $viz"
+  exit 0
+fi
+
+artist=$(playerctl metadata --format "{{ artist }}" 2>/dev/null)
+title=$(playerctl metadata --format "{{ title }}" 2>/dev/null)
+[[ -z "$artist" || -z "$title" ]] && echo "󰝚  $viz" && exit 0
+
+echo "󰝚  $viz  $artist — $title"

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Background cava daemon for waybar visualizer
+state="$HOME/.cache/cava-viz"
+cava -p "$HOME/.config/cava/waybar.conf" 2>/dev/null | while read -r line; do
+  echo "$line" > "$state"
+done

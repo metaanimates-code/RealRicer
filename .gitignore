@@ -1,4 +1,3 @@
-# Ignore wallpapers - too large for git
+# Wallpapers (handled in separate repo)
 config/themes/*/wallpapers/
-
-# Ignore VMs and other unrelated stuff
+config/backgrounds/

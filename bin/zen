@@ -1,0 +1,2 @@
+#!/bin/bash
+exec "/home/shrek/.tarball-installations/zen/zen" "$@"
